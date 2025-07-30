@@ -3,7 +3,7 @@ import base64
 import smtplib
 from email.message import EmailMessage
 
-from src.service.app_logger import app_logger
+from src.app_logger import app_logger
 from src.service.models import StatusType
 
 

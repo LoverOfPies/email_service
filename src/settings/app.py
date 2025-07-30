@@ -3,8 +3,8 @@ import logging
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from settings.postgres import PostgresSettings
-from settings.rabbit import RabbitSettings
+from src.settings.postgres import PostgresSettings
+from src.settings.rabbit import RabbitSettings
 from src.settings.prometheus import PrometheusSettings
 
 

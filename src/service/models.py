@@ -1,8 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, Enum, JSON, DateTime
-from sqlalchemy.ext.declarative import declarative_base
 import enum
 
-Base = declarative_base()
+from src.database.postgres import Base
 
 
 class StatusType(enum.Enum):
@@ -13,7 +12,7 @@ class StatusType(enum.Enum):
 
 
 class EmailData(Base):
-    __tablename__ = 'emaildata'
+    __tablename__ = 'email_data'
 
     id = Column(Integer, primary_key=True)
     address = Column(String(255))
