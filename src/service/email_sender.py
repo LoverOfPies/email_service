@@ -4,7 +4,7 @@ import smtplib
 from email.message import EmailMessage
 
 from src.app_logger import app_logger
-from src.service.models import StatusType
+from src.database.email_data.models import StatusType
 
 
 async def send_email_instance(record, session):

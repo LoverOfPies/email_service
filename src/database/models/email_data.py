@@ -12,14 +12,15 @@ class StatusType(enum.Enum):
 
 
 class EmailData(Base):
-    __tablename__ = 'email_data'
+    __tablename__ = "email_data"
+    __table_args__ = {"schema": "emails"}
 
     id = Column(Integer, primary_key=True)
     address = Column(String(255))
     message = Column(Text, nullable=True)
     body = Column(Text, nullable=True)
     subject = Column(String(255))
-    status = Column(Enum(StatusType), default=StatusType.NEW)
+    status = Column(Enum(StatusType, schema="emails"), default=StatusType.NEW)
     attachments = Column(JSON)
-    created_at = Column(DateTime, server_default='now()')
+    created_at = Column(DateTime, server_default="now()")
     error = Column(Text, nullable=True)

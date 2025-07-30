@@ -9,7 +9,6 @@ class PostgresSettings(BaseSettings):
     port: int = 5434
     user: str = "postgres"
     password: SecretStr = SecretStr("admin")
-    default_schema: str = "emails"
 
     echo: bool = False
     pool_size: int = 10
