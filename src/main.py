@@ -1,18 +1,17 @@
 import asyncio
-import logging
 
+from app_logger import app_logger
+from database.rabbit import get_rabbit_processor
 from src.service.service import Service
 from src.database.postgres import SessionManager
 from src.settings.app import settings
 
-logging.basicConfig(level=logging.INFO)
-
 
 async def main():
-    logging.info("Starting email service")
+    app_logger.info("Запуск сервиса")
     session_manager = SessionManager(settings.postgres)
-    rabbit = ...
-    await Service(session_manager, rabbit).run()
+    async with get_rabbit_processor(settings.rabbit) as rabbit_processor:
+        await Service(session_manager, rabbit_processor).run()
 
 
 if __name__ == "__main__":

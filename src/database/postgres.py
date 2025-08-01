@@ -15,7 +15,7 @@ class Base(AsyncAttrs, DeclarativeBase):
 class SessionManager:
     def __init__(self, settings: PostgresSettings | dict) -> None:
         self.settings = settings
-        app_logger.info("Конфиги БД")
+        app_logger.info("Подключение к Postgres начато")
         app_logger.debug(self.settings.model_dump_json(indent=4))
         _engine = create_async_engine(
             self.settings.dsn,
@@ -30,9 +30,11 @@ class SessionManager:
             bind=_engine,
             autocommit = self.settings.autocommit,
         )
+        app_logger.info("Подключение к Postgres установлено")
 
     @asynccontextmanager
     async def __call__(self) -> AsyncGenerator[AsyncSession, None]:
+        app_logger.info("Создание сессии Postgres")
         async with self._async_session() as session:
             try:
                 yield session
@@ -42,3 +44,4 @@ class SessionManager:
                 raise
             finally:
                 await session.close()
+        app_logger.info("Сессия Postgres создана")

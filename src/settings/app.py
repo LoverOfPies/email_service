@@ -13,6 +13,7 @@ class Settings(BaseSettings):
         default="WARNING",
         description=f"One of {', '.join(logging._nameToLevel.copy())}",
     )
+    timeout_for_repeat_read: int = 60
 
     rabbit: RabbitSettings = RabbitSettings()
     postgres: PostgresSettings = PostgresSettings()

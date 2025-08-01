@@ -1,5 +1,5 @@
 # email_service
-Test service for send emails
+Сервис для отправки писем на почту
 
 ### Структура проекта
 <pre>
