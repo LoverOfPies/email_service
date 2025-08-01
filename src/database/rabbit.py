@@ -24,8 +24,17 @@ class RabbitMessageMeta(BaseModel):
         )
 
 
+class EmailMessage(BaseModel):
+    to: str
+    subject: str
+    message: str | None = None
+    body: str | None = None
+    subject: str
+    attachments: list | None = None
+
+
 class MessageInfo(BaseModel):
-    message: dict[str, Any]
+    message: EmailMessage
     message_meta: RabbitMessageMeta
 
 
@@ -123,7 +132,7 @@ class RabbitReader:
         await self._connection_manager.close()
 
     @staticmethod
-    def decode_message(rabbit_message: aio_pika.IncomingMessage) -> MessageInfo:
+    def decode_message(rabbit_message: aio_pika.IncomingMessage) -> MessageInfo | None:
         message_meta = RabbitMessageMeta(
             exchange=rabbit_message.exchange,
             routing_key=rabbit_message.routing_key,
@@ -132,11 +141,11 @@ class RabbitReader:
         try:
             message = json.loads(rabbit_message.body.decode())
         except json.JSONDecodeError:
-            message = {}
             app_logger.error(
                 f"Ошибка при декодирования сообщения из RabbitMQ. {message_meta}"
             )
-        return MessageInfo(message=message, message_meta=message_meta)
+            return None
+        return MessageInfo(message=EmailMessage(**message), message_meta=message_meta)
 
     async def read(self) -> list[aio_pika.IncomingMessage]:
         conn = await self._get_connection()
@@ -181,7 +190,7 @@ class RabbitMessageProcessor:
         self.reader = rabbit_reader
         self.messages: list[aio_pika.IncomingMessage] = []
 
-    async def __aenter__(self) -> list[MessageInfo]:
+    async def __aenter__(self) -> list[MessageInfo | None]:
         max_retries = self.reader.settings.max_retries
         retry_delay = self.reader.settings.retry_delay_seconds
 

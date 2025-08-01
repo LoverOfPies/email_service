@@ -1,6 +1,6 @@
 import logging
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.settings.postgres import PostgresSettings
@@ -14,6 +14,12 @@ class Settings(BaseSettings):
         description=f"One of {', '.join(logging._nameToLevel.copy())}",
     )
     timeout_for_repeat_read: int = 60
+
+    email_from: str = "B0arding Team <team@b0arding.com>"
+    smtp_password: SecretStr = SecretStr("password")
+    smtp_user: str = "ff"
+    smtp_host: str = 'smtp.zeptomail.com'
+    smtp_port: int = 587
 
     rabbit: RabbitSettings = RabbitSettings()
     postgres: PostgresSettings = PostgresSettings()
