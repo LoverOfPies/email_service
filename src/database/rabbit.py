@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 import aio_pika
 from aiormq import AMQPError
 from pydantic import BaseModel
+import ssl
 
 from src.app_logger import app_logger
 from src.settings.rabbit import RabbitSettings
@@ -12,7 +13,7 @@ from src.settings.rabbit import RabbitSettings
 
 class RabbitMessageMeta(BaseModel):
     exchange: str | None = None
-    routing_key: str  | None = None
+    routing_key: str | None = None
     delivery_tag: int | None = None
 
     def __str__(self) -> str:
@@ -39,12 +40,22 @@ class RabbitConnection:
     async def connect(self) -> None:
         app_logger.info("Подключение к RabbitMQ")
         try:
+            if self.settings.use_ssl:
+                context = ssl.create_default_context(cafile=self.settings.ca_certs)
+                if self.settings.certfile and self.settings.keyfile:
+                    context.load_cert_chain(
+                        certfile=self.settings.certfile, keyfile=self.settings.keyfile
+                    )
+            else:
+                context = False
+
             self.connection = await aio_pika.connect_robust(
                 host=self.settings.host,
                 port=self.settings.port,
                 login=self.settings.username,
                 password=self.settings.password.get_secret_value(),
                 virtualhost=self.settings.virtual_host,
+                ssl=context,
             )
 
             self.channel = await self.connection.channel()
@@ -65,17 +76,18 @@ class RabbitConnection:
                 auto_delete=self.settings.queue.auto_delete,
                 arguments={
                     "x-message-ttl": self.settings.queue.x_message_ttl,
-                    "x-dead-letter-exchange": "dlx.email",
-                    "x-dead-letter-routing-key": "failed_emails",
+                    "x-dead-letter-exchange": self.settings.queue.dead_letter_exchange,
+                    "x-dead-letter-routing-key": self.settings.queue.dead_letter_routing_key,
                 },
             )
 
-            for binding in self.settings.bindings:
-                await self.queue.bind(
-                    exchange=self.exchange,
-                    routing_key=binding.routing_key,
-                    arguments=binding.arguments,
-                )
+            if self.exchange:
+                for binding in self.settings.bindings:
+                    await self.queue.bind(
+                        exchange=self.exchange,
+                        routing_key=binding.routing_key,
+                        arguments=binding.arguments,
+                    )
 
             app_logger.info("Подключение к RabbitMQ установлено")
         except Exception as e:
@@ -121,7 +133,9 @@ class RabbitReader:
             message = json.loads(rabbit_message.body.decode())
         except json.JSONDecodeError:
             message = {}
-            app_logger.error(f"Ошибка при декодирования сообщения из RabbitMQ. {message_meta}")
+            app_logger.error(
+                f"Ошибка при декодирования сообщения из RabbitMQ. {message_meta}"
+            )
         return MessageInfo(message=message, message_meta=message_meta)
 
     async def read(self) -> list[aio_pika.IncomingMessage]:
@@ -146,6 +160,7 @@ class RabbitReader:
             except asyncio.TimeoutError:
                 break
 
+        app_logger.info(f"Прочитано {len(messages)} сообщений из RabbitMQ")
         return messages
 
 
@@ -174,23 +189,34 @@ class RabbitMessageProcessor:
             try:
                 raw_messages = await self.reader.read()
                 self.messages = raw_messages
-                return [self.reader.decode_message(msg) for msg in raw_messages]
+                decoded_messages = [
+                    self.reader.decode_message(msg) for msg in raw_messages
+                ]
+                return decoded_messages
             except Exception as e:
                 if attempt < max_retries - 1:
-                    app_logger.error(f"Ошибка при чтении из RabbitMQ. Попытка повторного чтения: {attempt}")
+                    app_logger.error(
+                        f"Ошибка при чтении из RabbitMQ. Попытка повторного чтения: {attempt + 1}/{max_retries}"
+                    )
                     await asyncio.sleep(retry_delay * (2**attempt))
                     await self.reader.reset()
                 else:
                     app_logger.error(f"Ошибка при чтении из RabbitMQ: {e}")
                     raise
-        raise AMQPError("Ошибка при чтении из RabbitMQ")
+        raise AMQPError("Ошибка при чтении из RabbitMQ после нескольких попыток")
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         if exc_type:
+            app_logger.error(
+                f"Ошибка при обработки сообщений, {len(self.messages)} отказных сообщений"
+            )
             for msg in self.messages:
                 await msg.nack()
             await self.reader.reset()
         else:
+            app_logger.info(
+                f"Успешно обработано {len(self.messages)} сообщений"
+            )
             for msg in self.messages:
                 await msg.ack()
         self.messages = []

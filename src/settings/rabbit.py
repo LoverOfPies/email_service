@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 from typing import Any
-from urllib.parse import urlencode
-
-from aio_pika import ExchangeType
 from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from aio_pika import ExchangeType
 
 
 class QueueConfig(BaseModel):
@@ -14,6 +12,8 @@ class QueueConfig(BaseModel):
     exclusive: bool = False
     auto_delete: bool = False
     x_message_ttl: int = 60000
+    dead_letter_exchange: str = "dlx.email"
+    dead_letter_routing_key: str = "failed_emails"
 
 
 class ExchangeConfig(BaseModel):
@@ -24,8 +24,6 @@ class ExchangeConfig(BaseModel):
 
 
 class BindingConfig(BaseModel):
-    queue: str
-    exchange: str
     routing_key: str = ""
     arguments: dict[str, Any] = Field(default_factory=dict)
 
@@ -37,8 +35,13 @@ class RabbitSettings(BaseSettings):
     password: SecretStr = SecretStr("guest")
     virtual_host: str = "/"
 
-    heartbeat: int = 60  # секунды
-    connection_timeout: int = 10  # секунды
+    use_ssl: bool = False
+    ca_certs: str | None = None
+    certfile: str | None = None
+    keyfile: str | None = None
+
+    heartbeat: int = 60
+    connection_timeout: int = 10
     prefetch_count: int = 10
     batch_size: int = 50
     timeout_seconds: float = 1.0
@@ -59,27 +62,8 @@ class RabbitSettings(BaseSettings):
 
     @model_validator(mode="after")
     def setup_default_binding(self):
-        if not self.bindings:
+        if not self.bindings and self.exchange:
             self.bindings = [
-                BindingConfig(
-                    queue=self.queue.name,
-                    exchange=self.exchange.name,
-                    routing_key="email.*"
-                )
+                BindingConfig(routing_key="email.*")
             ]
         return self
-
-    @property
-    def amqp_url(self) -> str:
-        base = (
-            f"amqp://{self.username}:{self.password.get_secret_value()}"
-            f"@{self.host}:{self.port}/{self.virtual_host}"
-            f"?heartbeat={self.heartbeat}&connection_timeout={self.connection_timeout}"
-        )
-        params = {
-            "heartbeat": self.heartbeat,
-            "connection_timeout": self.connection_timeout,
-            "ssl": True,
-            "ssl_options": {"ca_certs": ...},
-        }
-        return f"{base}?{urlencode(params)}"
