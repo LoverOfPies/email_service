@@ -48,22 +48,31 @@ class RabbitSettings(BaseSettings):
     max_retries: int = 5
     retry_delay_seconds: int = 1
 
-    queue: QueueConfig = Field(default_factory=lambda: QueueConfig(name="email_service"))
+    queue: QueueConfig = Field(
+        default_factory=lambda: QueueConfig(name="email_service")
+    )
     exchange: ExchangeConfig | None = None
     bindings: list[BindingConfig] = Field(default_factory=list)
 
     model_config = SettingsConfigDict(env_prefix="EMAIL_SERVICE_RABBIT_")
 
-    @field_validator("port", "heartbeat", "connection_timeout")
+    @field_validator(
+        "port",
+        "heartbeat",
+        "connection_timeout",
+        "prefetch_count",
+        "batch_size",
+        "timeout_seconds",
+        "max_retries",
+        "retry_delay_seconds",
+    )
     def validate_positive_ints(cls, v):
         if v <= 0:
-            raise ValueError("Value must be positive integer")
+            raise ValueError("Значение должно быть положительным числом")
         return v
 
     @model_validator(mode="after")
     def setup_default_binding(self):
         if not self.bindings and self.exchange:
-            self.bindings = [
-                BindingConfig(routing_key="email.*")
-            ]
+            self.bindings = [BindingConfig(routing_key="email.*")]
         return self

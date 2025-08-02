@@ -6,6 +6,7 @@ from src.database.postgres import Base
 
 class StatusType(enum.Enum):
     NEW = "new"
+    RETRY = "retry"
     PROCESSED = "processed"
     PROCESSING = "processing"
     ERROR = "error"

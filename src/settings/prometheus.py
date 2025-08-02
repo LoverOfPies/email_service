@@ -5,7 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class PrometheusMetrics:
     handle_message_duration = Histogram(
         name="handle_message_duration",
-        documentation="Time to process one message",
+        documentation="Время обработки одного сообщения",
     )
 
 

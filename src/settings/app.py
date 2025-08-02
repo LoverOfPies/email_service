@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     @field_validator("log_level", mode="before")
     def validate_log_level(cls, v: str) -> str:
         if v not in logging._nameToLevel.copy():
-            raise ValueError("Error log level")
+            raise ValueError("Неправильный уровень логов")
         return v
 
     model_config = SettingsConfigDict(env_prefix="EMAIL_SERVICE_", case_sensitive=False)

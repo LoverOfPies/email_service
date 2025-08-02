@@ -24,7 +24,7 @@ def upgrade() -> None:
     sa.Column('message', sa.Text(), nullable=True),
     sa.Column('body', sa.Text(), nullable=True),
     sa.Column('subject', sa.String(length=255), nullable=True),
-    sa.Column('status', sa.Enum('NEW', 'PROCESSED', 'PROCESSING', 'ERROR', name='statustype', schema='emails'), nullable=True),
+    sa.Column('status', sa.Enum('NEW', 'RETRY', 'PROCESSED', 'PROCESSING', 'ERROR', name='statustype', schema='emails'), nullable=True),
     sa.Column('attachments', sa.JSON(), nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default='now()', nullable=True),
     sa.Column('error', sa.Text(), nullable=True),

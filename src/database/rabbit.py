@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import AsyncGenerator, Any
+from typing import AsyncGenerator
 from contextlib import asynccontextmanager
 import aio_pika
 from aiormq import AMQPError
