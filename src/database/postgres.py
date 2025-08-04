@@ -35,13 +35,13 @@ class SessionManager:
     @asynccontextmanager
     async def __call__(self) -> AsyncGenerator[AsyncSession, None]:
         app_logger.info("Создание сессии Postgres")
-        async with self._async_session() as session:
-            try:
-                yield session
-                await session.commit()
-            except Exception:
-                await session.rollback()
-                raise
-            finally:
-                await session.close()
-        app_logger.info("Сессия Postgres создана")
+        session = self._async_session()
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+        app_logger.info("Сессия Postgres закрыта")

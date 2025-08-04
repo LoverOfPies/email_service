@@ -1,6 +1,7 @@
 from asyncio import sleep
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.app_logger import app_logger
 from src.database.rabbit import RabbitMessageProcessor, MessageInfo
 from src.settings.app import settings
 from src.database.postgres import SessionManager
@@ -26,8 +27,8 @@ class Service:
             status=StatusType.NEW,
         )
         session.add(record)
-        await session.commit()
-        await send_email_with_retries(session, record)
+        await session.flush()
+        await send_email_with_retries(session=session, email_id=record.id)
 
     async def run(self):
         while True:
@@ -36,5 +37,8 @@ class Service:
                 for msg in messages:
                     if not msg:
                         continue
-                    async with self.session_manager() as session:
-                        await self.process_message(session, msg)
+                    try:
+                        async with self.session_manager() as session:
+                            await self.process_message(session, msg)
+                    except Exception as e:
+                        app_logger.error(f"Ошибка обработки сообщения: {str(e)}")
