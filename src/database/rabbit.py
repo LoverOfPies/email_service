@@ -29,7 +29,6 @@ class EmailMessage(BaseModel):
     subject: str
     message: str | None = None
     body: str | None = None
-    subject: str
     attachments: list | None = None
 
 
@@ -56,7 +55,7 @@ class RabbitConnection:
                         certfile=self.settings.certfile, keyfile=self.settings.keyfile
                     )
             else:
-                context = False
+                context = None
 
             self.connection = await aio_pika.connect_robust(
                 host=self.settings.host,
@@ -64,7 +63,8 @@ class RabbitConnection:
                 login=self.settings.username,
                 password=self.settings.password.get_secret_value(),
                 virtualhost=self.settings.virtual_host,
-                ssl=context,
+                ssl=self.settings.use_ssl,
+                ssl_context=context,
             )
 
             self.channel = await self.connection.channel()

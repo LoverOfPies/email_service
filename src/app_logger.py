@@ -29,7 +29,7 @@ class AppLogger(logging.Logger):
     ) -> None:
         logger_name = logger_name or __name__
         super().__init__(logger_name, *args, **kwargs)
-        fmt = fmt or "[%(asctime)s] [%(levelname)-8s] [%(name)s]: %(message)s"
+        fmt = fmt or "[%(asctime)s] [%(levelname)]-8s [%(name)s]: %(message)s"
         formatter = logging.Formatter(fmt=fmt)
         ch = logging.StreamHandler()
         ch.setLevel(level=log_level)
