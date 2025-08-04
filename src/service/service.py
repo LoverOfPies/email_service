@@ -3,10 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app_logger import app_logger
 from src.database.rabbit import RabbitMessageProcessor, MessageInfo
-from src.settings.app import settings
 from src.database.postgres import SessionManager
 from src.database.models.email_data import EmailData, StatusType
 from src.service.email_sender import send_email_with_retries
+from src.settings.app import settings
 
 
 class Service:
@@ -32,13 +32,13 @@ class Service:
 
     async def run(self):
         while True:
-            await sleep(settings.timeout_for_repeat_read)
-            async with self.rabbit as messages:
-                for msg in messages:
-                    if not msg:
-                        continue
-                    try:
-                        async with self.session_manager() as session:
-                            await self.process_message(session, msg)
-                    except Exception as e:
-                        app_logger.error(f"Ошибка обработки сообщения: {str(e)}")
+            async with self.rabbit as message:
+                if not message or not message.message:
+                    await sleep(1)
+                    continue
+
+                try:
+                    async with self.session_manager() as session:
+                        await self.process_message(session, message)
+                except Exception as e:
+                    app_logger.error(f"Ошибка обработки сообщения: {str(e)}")

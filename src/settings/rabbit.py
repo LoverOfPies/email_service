@@ -44,7 +44,7 @@ class RabbitSettings(BaseSettings):
     connection_timeout: int = 10
     prefetch_count: int = 10
     batch_size: int = 50
-    timeout_seconds: float = 1.0
+    timeout_seconds: int = 30
     max_retries: int = 5
     retry_delay_seconds: int = 1
 

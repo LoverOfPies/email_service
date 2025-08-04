@@ -104,6 +104,9 @@ class RabbitConnection:
             await self.close()
             raise
 
+    async def is_connected(self) -> bool:
+        return self.connection and not self.connection.is_closed
+
     async def close(self) -> None:
         if self.channel and not self.channel.is_closed:
             await self.channel.close()
@@ -120,7 +123,10 @@ class RabbitReader:
         self._connection_manager = RabbitConnection(settings)
 
     async def _get_connection(self) -> RabbitConnection:
-        if not self._connection_manager.connection:
+        if (
+            not self._connection_manager.connection
+            or not await self._connection_manager.is_connected()
+        ):
             await self._connection_manager.connect()
         return self._connection_manager
 
@@ -132,7 +138,7 @@ class RabbitReader:
         await self._connection_manager.close()
 
     @staticmethod
-    def decode_message(rabbit_message: aio_pika.IncomingMessage) -> MessageInfo | None:
+    async def decode_message(rabbit_message: aio_pika.IncomingMessage) -> MessageInfo | None:
         message_meta = RabbitMessageMeta(
             exchange=rabbit_message.exchange,
             routing_key=rabbit_message.routing_key,
@@ -147,30 +153,22 @@ class RabbitReader:
             return None
         return MessageInfo(message=EmailMessage(**message), message_meta=message_meta)
 
-    async def read(self) -> list[aio_pika.IncomingMessage]:
-        conn = await self._get_connection()
-        messages = []
+    async def read(self) -> aio_pika.IncomingMessage | None:
         start_time = asyncio.get_running_loop().time()
         timeout = self.settings.timeout_seconds
+        elapsed = asyncio.get_running_loop().time() - start_time
+        remaining_time = max(0.0, timeout - elapsed)
+        if remaining_time <= 0:
+            return None
 
-        while len(messages) < self.settings.batch_size:
-            elapsed = asyncio.get_running_loop().time() - start_time
-            remaining_time = max(0.0, timeout - elapsed)
-
-            if remaining_time <= 0:
-                break
-
-            try:
-                message = await asyncio.wait_for(
-                    conn.queue.get(fail=False), remaining_time
-                )
-                if message:
-                    messages.append(message)
-            except asyncio.TimeoutError:
-                break
-
-        app_logger.info(f"Прочитано {len(messages)} сообщений из RabbitMQ")
-        return messages
+        conn = await self._get_connection()
+        try:
+            message = await conn.queue.get(fail=True, timeout=remaining_time)
+            if message:
+                app_logger.info("Получено сообщение из RabbitMQ")
+            return message
+        except (asyncio.TimeoutError, asyncio.QueueEmpty):
+            return None
 
 
 @asynccontextmanager
@@ -190,22 +188,24 @@ class RabbitMessageProcessor:
         self.reader = rabbit_reader
         self.messages: list[aio_pika.IncomingMessage] = []
 
-    async def __aenter__(self) -> list[MessageInfo | None]:
+    async def __aenter__(self) -> MessageInfo | None:
         max_retries = self.reader.settings.max_retries
         retry_delay = self.reader.settings.retry_delay_seconds
 
         for attempt in range(max_retries):
+            self._msg = None
             try:
-                raw_messages = await self.reader.read()
-                self.messages = raw_messages
-                decoded_messages = [
-                    self.reader.decode_message(msg) for msg in raw_messages
-                ]
-                return decoded_messages
+                raw_msg = await self.reader.read()
+                if not raw_msg:
+                    if attempt > 0:
+                        app_logger.info("Очередь RabbitMQ пуста")
+                    return None
+                self._msg = raw_msg
+                return await self.reader.decode_message(raw_msg)
             except Exception as e:
                 if attempt < max_retries - 1:
                     app_logger.error(
-                        f"Ошибка при чтении из RabbitMQ. Попытка повторного чтения: {attempt + 1}/{max_retries}"
+                        f"Ошибка при чтении из RabbitMQ. Попытка повторного чтения: {attempt + 1}/{max_retries}. Ошибка: {e}"
                     )
                     await asyncio.sleep(retry_delay * (2**attempt))
                     await self.reader.reset()
@@ -215,20 +215,27 @@ class RabbitMessageProcessor:
         raise AMQPError("Ошибка при чтении из RabbitMQ после нескольких попыток")
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        if not self._msg:
+            return
         if exc_type:
-            app_logger.error(
-                f"Ошибка при обработки сообщений, {len(self.messages)} отказных сообщений"
-            )
-            for msg in self.messages:
-                await msg.nack()
+            await self._nack(self._msg)
             await self.reader.reset()
         else:
-            app_logger.info(
-                f"Успешно обработано {len(self.messages)} сообщений"
-            )
-            for msg in self.messages:
-                await msg.ack()
-        self.messages = []
+            await self._ack(self._msg)
+
+    async def _ack(self, raw_message: aio_pika.IncomingMessage) -> None:
+        try:
+            if not raw_message.channel.is_closed:
+                await raw_message.ack()
+        except Exception as e:
+            app_logger.error(f"ACK error: {e}")
+
+    async def _nack(self, raw_message: aio_pika.IncomingMessage) -> None:
+        try:
+            if not raw_message.channel.is_closed:
+                await raw_message.nack(requeue=False)
+        except Exception as e:
+            app_logger.error(f"NACK error: {e}")
 
     async def close(self) -> None:
         await self.reader.close()

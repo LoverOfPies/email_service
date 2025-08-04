@@ -3,7 +3,6 @@ import base64
 import mimetypes
 import smtplib
 from email.message import EmailMessage
-from asyncio import sleep
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,12 +11,12 @@ from src.database.models.email_data import StatusType, EmailData
 from src.settings.app import settings
 
 
-async def _send_email_sync(
-    to: str,
-    subject: str,
-    message: str | None,
-    body: str | None,
-    attachments: list | None,
+def _send_email(
+        to: str,
+        subject: str,
+        message: str | None,
+        body: str | None,
+        attachments: list | None,
 ):
     msg = EmailMessage()
     msg["From"] = settings.email_from
@@ -53,7 +52,10 @@ async def _send_email_sync(
 
 
 async def send_email_with_retries(
-    session: AsyncSession, email_id: int, max_retries: int = 3, retry_delay: int = 5
+        session: AsyncSession,
+        email_id: int,
+        max_retries: int = 3,
+        retry_delay: int = 5
 ):
     for attempt in range(max_retries + 1):
         try:
@@ -71,7 +73,7 @@ async def send_email_with_retries(
             await session.flush()
 
             await asyncio.to_thread(
-                _send_email_sync,
+                _send_email,
                 to=record.address,
                 subject=record.subject,
                 message=record.message,
@@ -85,14 +87,14 @@ async def send_email_with_retries(
 
         except smtplib.SMTPException as e:
             app_logger.warning(
-                f"Попытка {attempt+1}/{max_retries} отправки {email_id} не удалась: {str(e)}"
+                f"Попытка {attempt + 1}/{max_retries} отправки {email_id} не удалась: {str(e)}"
             )
             record = await session.get(EmailData, email_id, with_for_update=True)
 
             if attempt < max_retries:
                 record.status = StatusType.RETRY
                 record.error = str(e)
-                await sleep(retry_delay * (2**attempt))
+                await asyncio.sleep(retry_delay * (2 ** attempt))
             else:
                 record.status = StatusType.ERROR
                 record.error = str(e)

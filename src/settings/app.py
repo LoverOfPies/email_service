@@ -13,7 +13,6 @@ class Settings(BaseSettings):
         default="WARNING",
         description=f"One of {', '.join(logging._nameToLevel.copy())}",
     )
-    timeout_for_repeat_read: int = 60
 
     email_from: str = "B0arding Team <team@b0arding.com>"
     smtp_password: SecretStr = SecretStr("password")
