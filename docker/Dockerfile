@@ -23,8 +23,9 @@ RUN mkdir -p $APP_HOME && chown $APP_USER:$APP_USER -R $APP_HOME
 
 WORKDIR $APP_HOME
 COPY --link --chown=$APP_USER:$APP_USER --from=builder . $APP_HOME
+COPY --chown=$APP_USER:$APP_USER alembic/ $APP_HOME/alembic
+COPY --chown=$APP_USER:$APP_USER entrypoint.sh alembic.ini  $APP_HOME
 COPY --chown=$APP_USER:$APP_USER src/ $APP_HOME/src
-COPY --chown=$APP_USER:$APP_USER entrypoint.sh  $APP_HOME
 
 USER $APP_USER
 EXPOSE 8080/TCP
