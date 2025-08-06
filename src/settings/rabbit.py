@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from typing import Any
+
+from aio_pika import ExchangeType
 from pydantic import BaseModel, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from aio_pika import ExchangeType
 
 
 class QueueConfig(BaseModel):
-    name: str = "email_service"
+    name: str = "email_queue"
     durable: bool = True
     exclusive: bool = False
     auto_delete: bool = False
@@ -43,13 +44,12 @@ class RabbitSettings(BaseSettings):
     heartbeat: int = 60
     connection_timeout: int = 10
     prefetch_count: int = 10
-    batch_size: int = 50
     timeout_seconds: int = 30
     max_retries: int = 5
     retry_delay_seconds: int = 1
 
     queue: QueueConfig = Field(
-        default_factory=lambda: QueueConfig(name="email_service")
+        default_factory=lambda: QueueConfig(name="email_queue")
     )
     exchange: ExchangeConfig | None = None
     bindings: list[BindingConfig] = Field(default_factory=list)
@@ -61,7 +61,6 @@ class RabbitSettings(BaseSettings):
         "heartbeat",
         "connection_timeout",
         "prefetch_count",
-        "batch_size",
         "timeout_seconds",
         "max_retries",
         "retry_delay_seconds",

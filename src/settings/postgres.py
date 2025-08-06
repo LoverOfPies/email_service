@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class PostgresSettings(BaseSettings):
     engine: str = "postgresql+psycopg"
-    dbname: str = "boardingdb"
+    dbname: str = "emailsdb"
     host: str = "localhost"
     port: int = 5434
     user: str = "postgres"

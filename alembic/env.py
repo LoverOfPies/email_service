@@ -41,8 +41,7 @@ def include_object(object, name, type_, reflected, compare_to):
         return False
     elif type_ == "table" and object.schema != TARGET_SCHEMA:
         return False
-    else:
-        return True
+    return True
 
 
 def run_migrations_offline():
@@ -89,6 +88,7 @@ def run_migrations_online():
         )
         connection.execute(text(_query))
     with connectable.connect() as connection:
+        # connection.execute(text(f"SET search_path TO {TARGET_SCHEMA}"))
         connection.dialect.default_schema_name = TARGET_SCHEMA
         context.configure(
             connection=connection,

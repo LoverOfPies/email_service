@@ -1,11 +1,11 @@
 import logging
 
-from pydantic import Field, field_validator, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.settings.postgres import PostgresSettings
-from src.settings.rabbit import RabbitSettings
 from src.settings.prometheus import PrometheusSettings
+from src.settings.rabbit import RabbitSettings
 
 
 class Settings(BaseSettings):
@@ -13,8 +13,14 @@ class Settings(BaseSettings):
         default="WARNING",
         description=f"One of {', '.join(logging._nameToLevel.copy())}",
     )
+    timeout_for_repeat_read: int = 30
 
-    email_from: str = "B0arding Team <team@b0arding.com>"
+    s3_url: str = "https://your-s3-endpoint/"
+    base_url: str = "https://base.com/"
+    facebook_url: str = "https://facebook.com/me"
+    instagram_url: str = "https://instagram.com/me"
+
+    email_from: str = "ilya.408@yandex.ru>"
     smtp_password: SecretStr = SecretStr("password")
     smtp_user: str = "ff"
     smtp_host: str = 'smtp.zeptomail.com'

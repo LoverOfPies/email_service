@@ -7,7 +7,7 @@ from email.message import EmailMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.app_logger import app_logger
-from src.database.models.email_data import StatusType, EmailData
+from src.database.models.email_data import EmailData, StatusType
 from src.settings.app import settings
 
 

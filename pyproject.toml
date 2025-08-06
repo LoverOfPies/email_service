@@ -9,6 +9,8 @@ dependencies = [
     "aio-pika>=9.5.5",
     "alembic>=1.16.4",
     "greenlet>=3.2.3",
+    "jinja2>=3.1.6",
+    "orjson>=3.11.1",
     "prometheus-client>=0.22.1",
     "psycopg>=3.2.9",
     "psycopg-binary>=3.2.9",
@@ -21,4 +23,14 @@ dependencies = [
 dev = [
     "black>=25.1.0",
     "ruff>=0.12.7",
+    "pytest>=7.0.0",
 ]
+
+[tool.black]
+line-length = 120
+
+[tool.ruff]
+src = ["src", "tests"]
+lint.select = ["A", "B", "C", "E", "F", "I", "ISC"]
+line-length = 120
+exclude = ["alembic"]

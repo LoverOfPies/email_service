@@ -1,11 +1,12 @@
 import asyncio
-import json
-from typing import AsyncGenerator
+import ssl
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+
 import aio_pika
+import orjson
 from aiormq import AMQPError
 from pydantic import BaseModel
-import ssl
 
 from src.app_logger import app_logger
 from src.settings.rabbit import RabbitSettings
@@ -17,18 +18,15 @@ class RabbitMessageMeta(BaseModel):
     delivery_tag: int | None = None
 
     def __str__(self) -> str:
-        return (
-            f"Exchange: {self.exchange}, "
-            f"Routing Key: {self.routing_key}, "
-            f"Delivery Tag: {self.delivery_tag}"
-        )
+        return f"Exchange: {self.exchange}, Routing Key: {self.routing_key}, Delivery Tag: {self.delivery_tag}"
 
 
 class EmailMessage(BaseModel):
     to: str
     subject: str
     message: str | None = None
-    body: str | None = None
+    template: str | None = None
+    context: dict | None = None
     attachments: list | None = None
 
 
@@ -51,9 +49,7 @@ class RabbitConnection:
             if self.settings.use_ssl:
                 context = ssl.create_default_context(cafile=self.settings.ca_certs)
                 if self.settings.certfile and self.settings.keyfile:
-                    context.load_cert_chain(
-                        certfile=self.settings.certfile, keyfile=self.settings.keyfile
-                    )
+                    context.load_cert_chain(certfile=self.settings.certfile, keyfile=self.settings.keyfile)
             else:
                 context = None
 
@@ -123,10 +119,7 @@ class RabbitReader:
         self._connection_manager = RabbitConnection(settings)
 
     async def _get_connection(self) -> RabbitConnection:
-        if (
-            not self._connection_manager.connection
-            or not await self._connection_manager.is_connected()
-        ):
+        if not self._connection_manager.connection or not await self._connection_manager.is_connected():
             await self._connection_manager.connect()
         return self._connection_manager
 
@@ -145,11 +138,9 @@ class RabbitReader:
             delivery_tag=rabbit_message.delivery_tag,
         )
         try:
-            message = json.loads(rabbit_message.body.decode())
-        except json.JSONDecodeError:
-            app_logger.error(
-                f"Ошибка при декодирования сообщения из RabbitMQ. {message_meta}"
-            )
+            message = orjson.loads(rabbit_message.body.decode())
+        except orjson.JSONDecodeError:
+            app_logger.error(f"Ошибка при декодирования сообщения из RabbitMQ. {message_meta}")
             return None
         return MessageInfo(message=EmailMessage(**message), message_meta=message_meta)
 
@@ -205,7 +196,8 @@ class RabbitMessageProcessor:
             except Exception as e:
                 if attempt < max_retries - 1:
                     app_logger.error(
-                        f"Ошибка при чтении из RabbitMQ. Попытка повторного чтения: {attempt + 1}/{max_retries}. Ошибка: {e}"
+                        "Ошибка при чтении из RabbitMQ. "
+                        f"Попытка повторного чтения: {attempt + 1}/{max_retries}. Ошибка: {e}"
                     )
                     await asyncio.sleep(retry_delay * (2**attempt))
                     await self.reader.reset()

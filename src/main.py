@@ -1,9 +1,9 @@
 import asyncio
 
 from src.app_logger import app_logger
+from src.database.postgres import SessionManager
 from src.database.rabbit import get_rabbit_processor
 from src.service.service import Service
-from src.database.postgres import SessionManager
 from src.settings.app import settings
 
 
