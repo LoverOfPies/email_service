@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  postgres:
+    image: postgres:13
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_DB: emailsdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: admin
+
+  email_service:
+    build: .
+    depends_on:
+      - rabbitmq
+      - postgres
+    ports:
+      - "9105:9105"
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"

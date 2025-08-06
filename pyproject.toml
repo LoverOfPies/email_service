@@ -1,0 +1,36 @@
+[project]
+name = "email-service"
+version = "0.1.0"
+description = "Service for work with email"
+authors = ["Ilya Antipov <ilya.4081@gmail.com>"]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aio-pika>=9.5.5",
+    "alembic>=1.16.4",
+    "greenlet>=3.2.3",
+    "jinja2>=3.1.6",
+    "orjson>=3.11.1",
+    "prometheus-client>=0.22.1",
+    "psycopg>=3.2.9",
+    "psycopg-binary>=3.2.9",
+    "pydantic>=2.11.7",
+    "pydantic-settings>=2.10.1",
+    "sqlalchemy>=2.0.42",
+]
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "ruff>=0.12.7",
+    "pytest>=7.0.0",
+]
+
+[tool.black]
+line-length = 120
+
+[tool.ruff]
+src = ["src", "tests"]
+lint.select = ["A", "B", "C", "E", "F", "I", "ISC"]
+line-length = 120
+exclude = ["alembic"]
